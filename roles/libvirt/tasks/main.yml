@@ -1,0 +1,75 @@
+---
+- name: Install libvirt and KVM packages
+  pacman:
+    name:
+      - libvirt
+      - qemu-full
+      - virt-install
+      - virt-manager
+      - virt-viewer
+      - dnsmasq
+      - ebtables
+      - bridge-utils
+      - openbsd-netcat
+      - dmidecode
+    state: present
+
+- name: Add users to libvirt group
+  user:
+    name: "{{ item }}"
+    groups: libvirt
+    append: yes
+  loop: "{{ docker_users }}"
+
+- name: Create VM storage directory on ZFS
+  file:
+    path: /tank/vms
+    state: directory
+    mode: '0755'
+
+- name: Configure libvirt storage pool for VMs
+  blockinfile:
+    path: /etc/libvirt/storage/vms.xml
+    create: yes
+    mode: '0644'
+    block: |
+      <pool type='dir'>
+        <name>vms</name>
+        <source>
+        </source>
+        <target>
+          <path>/tank/vms</path>
+          <permissions>
+            <mode>0755</mode>
+          </permissions>
+        </target>
+      </pool>
+  notify: restart libvirtd
+
+- name: Enable and start libvirtd service
+  systemd:
+    name: libvirtd
+    state: started
+    enabled: yes
+
+- name: Enable libvirt default network
+  command: virsh net-autostart default
+  changed_when: false
+  failed_when: false
+
+- name: Start libvirt default network
+  command: virsh net-start default
+  changed_when: false
+  failed_when: false
+
+- name: Configure UEFI support
+  lineinfile:
+    path: /etc/libvirt/qemu.conf
+    regexp: '^#?nvram ='
+    line: 'nvram = [ "/usr/share/ovmf/x64/OVMF_CODE.fd:/usr/share/ovmf/x64/OVMF_VARS.fd" ]'
+  notify: restart libvirtd
+
+- name: Install OVMF for UEFI support
+  pacman:
+    name: edk2-ovmf
+    state: present

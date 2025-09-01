@@ -1,0 +1,13 @@
+---
+all:
+  hosts:
+    nebula:
+      ansible_host: nebula
+      ansible_user: eric
+      ansible_become: yes
+      ansible_python_interpreter: /usr/bin/python3
+  vars:
+    install_aur_packages: true
+    zfs_pool_name: tank
+    docker_users:
+      - eric

@@ -1,0 +1,54 @@
+---
+- name: Install Docker packages
+  pacman:
+    name:
+      - docker
+      - docker-compose
+    state: present
+
+- name: Create Docker group
+  group:
+    name: docker
+    state: present
+
+- name: Add users to Docker group
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  loop: "{{ docker_users }}"
+
+- name: Create Docker ZFS storage directory
+  file:
+    path: /tank/docker
+    state: directory
+    mode: '0755'
+
+- name: Configure Docker daemon
+  copy:
+    content: |
+      {
+        "storage-driver": "zfs",
+        "storage-opts": [
+          "zfs.fsname=tank/docker"
+        ],
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: restart docker
+
+- name: Enable and start Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Install Docker Python library for Ansible
+  pacman:
+    name: python-docker
+    state: present

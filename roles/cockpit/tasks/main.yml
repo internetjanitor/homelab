@@ -1,0 +1,31 @@
+---
+- name: Install Cockpit packages
+  pacman:
+    name:
+      - cockpit
+      - cockpit-machines
+      - cockpit-podman
+      - cockpit-storaged
+      - udisks2
+    state: present
+
+- name: Enable and start Cockpit socket
+  systemd:
+    name: cockpit.socket
+    state: started
+    enabled: yes
+
+- name: Configure firewall for Cockpit
+  community.general.ufw:
+    rule: allow
+    port: '9090'
+    proto: tcp
+    comment: Cockpit web interface
+
+- name: Install Cockpit ZFS module from AUR
+  aur:
+    name: cockpit-zfs-manager
+    use: yay
+  become: yes
+  become_user: "{{ ansible_user }}"
+  when: install_aur_packages | default(false)

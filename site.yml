@@ -1,0 +1,16 @@
+---
+- name: Configure nebula server
+  hosts: nebula
+  gather_facts: yes
+  
+  pre_tasks:
+    - name: Update package cache
+      pacman:
+        update_cache: yes
+      
+  roles:
+    - common
+    - zfs
+    # - docker
+    # - libvirt
+    # - cockpit
