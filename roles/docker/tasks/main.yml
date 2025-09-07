@@ -16,7 +16,7 @@
     name: "{{ item }}"
     groups: docker
     append: yes
-  loop: "{{ docker_users }}"
+  loop: "{{ virt_users }}"
 
 - name: Create Docker ZFS storage directory
   file:

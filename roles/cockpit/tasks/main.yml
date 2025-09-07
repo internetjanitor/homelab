@@ -1,13 +1,28 @@
 ---
-- name: Install Cockpit packages
-  pacman:
+- name: Install Cockpit System packages
+  community.general.pacman:
     name:
       - cockpit
+      - cockpit-packagekit
+      - cockpit-storaged
+      - cockpit-files
       - cockpit-machines
       - cockpit-podman
-      - cockpit-storaged
       - udisks2
     state: present
+
+- name: Install Cockpit AUR packages
+  kewlfft.aur.aur:
+    name:
+      - cockpit-file-sharing
+      - cockpit-navigator
+      - cockpit-zfs-manager
+      - cockpit-sensors
+      - udisks2
+    use: paru
+  become: yes
+  become_user: aur_builder
+  when: install_aur_packages | default(false)
 
 - name: Enable and start Cockpit socket
   systemd:
@@ -21,11 +36,3 @@
     port: '9090'
     proto: tcp
     comment: Cockpit web interface
-
-- name: Install Cockpit ZFS module from AUR
-  aur:
-    name: cockpit-zfs-manager
-    use: yay
-  become: yes
-  become_user: "{{ ansible_user }}"
-  when: install_aur_packages | default(false)

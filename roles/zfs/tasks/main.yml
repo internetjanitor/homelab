@@ -11,39 +11,46 @@
     name: zfs
     state: present
 
-# - name: Enable ZFS services
-#   systemd:
-#     name: "{{ item }}"
-#     state: started
-#     enabled: yes
-#   loop:
-#     - zfs-import-cache.service
-#     - zfs-import.target
-#     - zfs-mount.service
-#     - zfs.target
+- name: Enable ZFS services
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - zfs-import-cache.service
+    - zfs-import.target
+    - zfs-mount.service
+    - zfs.target
 
-# - name: Check if ZFS pool exists
-#   command: zpool list {{ zfs_pool_name }}
-#   register: zpool_check
-#   changed_when: false
-#   failed_when: false
+- name: Check if ZFS pool exists
+  command: zpool list {{ zfs_pool_name }}
+  register: zpool_check
+  changed_when: false
+  failed_when: false
 
-# - name: Import ZFS pool
-#   command: zpool import {{ zfs_pool_name }}
-#   when: zpool_check.rc != 0
+- name: Import ZFS pool
+  command: zpool import {{ zfs_pool_name }}
+  when: zpool_check.rc != 0
 
-# - name: Set ZFS pool to auto-import
-#   lineinfile:
-#     path: /etc/conf.d/zfs
-#     regexp: '^ZFS_POOL_IMPORT='
-#     line: 'ZFS_POOL_IMPORT="{{ zfs_pool_name }}"'
-#     create: yes
+- name: Set ZFS pool to auto-import
+  lineinfile:
+    path: /etc/conf.d/zfs
+    regexp: '^ZFS_POOL_IMPORT='
+    line: 'ZFS_POOL_IMPORT="{{ zfs_pool_name }}"'
+    create: yes
 
-# - name: Create ZFS datasets
-#   zfs:
-#     name: "{{ item }}"
-#     state: present
-#   loop:
-#     - "{{ zfs_pool_name }}/docker"
-#     - "{{ zfs_pool_name }}/vms"
-#     - "{{ zfs_pool_name }}/data"
+- name: Create ZFS datasets
+  zfs:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "{{ zfs_pool_name }}/ai-models"
+    - "{{ zfs_pool_name }}/containers"
+    - "{{ zfs_pool_name }}/export-share"
+    - "{{ zfs_pool_name }}/projects"
+    - "{{ zfs_pool_name }}/virt-images"
+    - "{{ zfs_pool_name }}/virt-isos"
+    - "{{ zfs_pool_name }}/virt-configs"
+
+
+    

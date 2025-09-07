@@ -1,46 +1,96 @@
 ---
-- name: Ensure system is up to date
-  pacman:
-    update_cache: yes
-    upgrade: yes
-
 - name: Install server kernel
-  pacman:
+  community.general.pacman:
     name:
       - linux-cachyos-server
       - linux-cachyos-server-headers
-    state: present
+      - linux-cachyos-server-zfs
+      - linux-cachyos-server-nvidia
+    state: latest
+  register: kernel_install
 
+- name: Check if reboot is required after kernel update
+  ansible.builtin.pause:
+    prompt: "Kernel was updated. Do you want to reboot now? (yes/no)"
+  register: reboot_prompt
+  when: kernel_install.changed
+
+- name: Reboot the server
+  ansible.builtin.reboot:
+    msg: "Rebooting after kernel update"
+    reboot_timeout: 300
+  when: 
+    - kernel_install.changed
+    - reboot_prompt.user_input | default('no') | lower == 'yes'
+
+- name: Ensure system is up to date
+  community.general.pacman:
+    update_cache: yes
+    upgrade: yes
 
 - name: Install essential packages
-  pacman:
+  community.general.pacman:
     name:
-      # - htop
+      - ntp
+      - bridge-utils
+      - cifs-utils
+      - duperemove
       - iotop
+      - ipmitool
+      - freeipmi
+      - openipmi
+      - prometheus-ipmi-exporter
+      # - ast-firmware
       - ncdu
       - tmux
-      # - vim
-      # - git
-      # - rsync
-      - wget
-      - curl
-      # - python-pip
-      # - python-setuptools
+
     state: present
 
-- name: Configure NTP
-  pacman:
-    name: ntp
-    state: present
+- name: Create the `aur_builder` user
+  become: yes
+  ansible.builtin.user:
+    name: aur_builder
+    create_home: yes
+    group: wheel
 
-- name: Enable and start NTP service
-  systemd:
-    name: ntpd
+- name: Allow the `aur_builder` user to run `sudo pacman` without a password
+  become: yes
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/11-install-aur_builder
+    line: 'aur_builder ALL=(ALL) NOPASSWD: /usr/bin/pacman'
+    create: yes
+    mode: 0644
+    validate: 'visudo -cf %s'
+
+- name: Install essential packages from AUR
+  kewlfft.aur.aur:
+    name:
+      - stressapptest
+      - stacer-bin
+      - rasdaemon
+      - cockpit-file-sharing
+      - cockpit-navigator
+      - cockpit-zfs-manager
+      - cockpit-sensors
+    use: paru
+  become: yes
+  become_user: aur_builder
+  when: install_aur_packages | default(false)
+
+# chown ollama:ollama /var/lib/ollama
+# ras-mc-ctl --error-count
+
+- name: Enable and start services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
     state: started
     enabled: yes
+  loop:
+    - ntpd
+    - rasdaemon
 
 - name: Set timezone
-  timezone:
+  ansible.builtin.timezone:
     name: America/New_York
 
 # - name: Configure sysctl for performance

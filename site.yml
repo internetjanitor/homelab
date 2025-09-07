@@ -5,12 +5,12 @@
   
   pre_tasks:
     - name: Update package cache
-      pacman:
+      community.general.pacman:
         update_cache: yes
       
   roles:
     - common
     - zfs
     # - docker
-    # - libvirt
-    # - cockpit
+    - libvirt
+    - cockpit

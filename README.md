@@ -13,16 +13,16 @@ Ansible playbooks for managing homelab infrastructure, starting with the "nebula
 ## Prerequisites
 
 - Arch Linux server with:
-  - User "eric" with sudo access
+  - SSH servuce enabled
+     - `systemctl enable --now sshd`
+  - UFW firewall with SSH allowed
+     - `ufw allow ssh`
+  - SSH key configured
+     - `ssh-copy-id nebula`
+  - User with passwordless sudo access
      - `visudo`
        uncomment `%wheel ALL=(ALL:ALL) NOPASSWD: ALL`
      - `rm /etc/sudoers.d/10-installer`
-  - SSH servuce enabled
-     - `systemctl enable --now sshd`
-  - SSH key configured
-     - `ssh-copy-id nebula`
-  - UFW firewall with SSH allowed
-     - `ufw allow ssh`
   - ZFS pool "tank" ready to import
 
 ## Usage

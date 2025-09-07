@@ -9,5 +9,5 @@ all:
   vars:
     install_aur_packages: true
     zfs_pool_name: tank
-    docker_users:
+    virt_users:
       - eric

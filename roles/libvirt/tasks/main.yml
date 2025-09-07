@@ -1,6 +1,6 @@
 ---
 - name: Install libvirt and KVM packages
-  pacman:
+  community.general.pacman:
     name:
       - libvirt
       - qemu-full
@@ -19,26 +19,26 @@
     name: "{{ item }}"
     groups: libvirt
     append: yes
-  loop: "{{ docker_users }}"
+  loop: "{{ virt_users }}"
 
 - name: Create VM storage directory on ZFS
   file:
-    path: /tank/vms
+    path: /tank/virt-images
     state: directory
     mode: '0755'
 
 - name: Configure libvirt storage pool for VMs
   blockinfile:
-    path: /etc/libvirt/storage/vms.xml
+    path: /etc/libvirt/storage/virt-images.xml
     create: yes
     mode: '0644'
     block: |
       <pool type='dir'>
-        <name>vms</name>
+        <name>virt-images</name>
         <source>
         </source>
         <target>
-          <path>/tank/vms</path>
+          <path>/tank/virt-images</path>
           <permissions>
             <mode>0755</mode>
           </permissions>
@@ -61,15 +61,3 @@
   command: virsh net-start default
   changed_when: false
   failed_when: false
-
-- name: Configure UEFI support
-  lineinfile:
-    path: /etc/libvirt/qemu.conf
-    regexp: '^#?nvram ='
-    line: 'nvram = [ "/usr/share/ovmf/x64/OVMF_CODE.fd:/usr/share/ovmf/x64/OVMF_VARS.fd" ]'
-  notify: restart libvirtd
-
-- name: Install OVMF for UEFI support
-  pacman:
-    name: edk2-ovmf
-    state: present
