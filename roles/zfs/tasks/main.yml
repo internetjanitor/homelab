@@ -1,8 +1,7 @@
 ---
 - name: Install ZFS packages
-  pacman:
+  community.general.pacman:
     name:
-      # - zfs-linux
       - zfs-utils
     state: present
 
@@ -22,35 +21,30 @@
     - zfs-mount.service
     - zfs.target
 
-- name: Check if ZFS pool exists
-  command: zpool list {{ zfs_pool_name }}
-  register: zpool_check
+- name: Check if ZFS pools exist
+  command: zpool list {{ item.name }}
+  register: zpool_checks
   changed_when: false
   failed_when: false
+  loop: "{{ zfs_pools }}"
+  when: zfs_pools is defined
 
-- name: Import ZFS pool
-  command: zpool import {{ zfs_pool_name }}
-  when: zpool_check.rc != 0
-
-- name: Set ZFS pool to auto-import
-  lineinfile:
-    path: /etc/conf.d/zfs
-    regexp: '^ZFS_POOL_IMPORT='
-    line: 'ZFS_POOL_IMPORT="{{ zfs_pool_name }}"'
-    create: yes
+- name: Import ZFS pools
+  command: zpool import {{ item.item.name }}
+  when: 
+    - zfs_pools is defined
+    - item.rc != 0
+  loop: "{{ zpool_checks.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
 
 - name: Create ZFS datasets
   zfs:
-    name: "{{ item }}"
+    name: "{{ item.0.name }}/{{ item.1 }}"
     state: present
-  loop:
-    - "{{ zfs_pool_name }}/ai-models"
-    - "{{ zfs_pool_name }}/containers"
-    - "{{ zfs_pool_name }}/export-share"
-    - "{{ zfs_pool_name }}/projects"
-    - "{{ zfs_pool_name }}/virt-images"
-    - "{{ zfs_pool_name }}/virt-isos"
-    - "{{ zfs_pool_name }}/virt-configs"
-
-
-    
+  with_nested:
+    - "{{ zfs_pools }}"
+    - "{{ item.0.datasets | default([]) }}"
+  when: 
+    - zfs_pools is defined
+    - item.0.datasets is defined

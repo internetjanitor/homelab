@@ -8,6 +8,20 @@ all:
       ansible_python_interpreter: /usr/bin/python3
   vars:
     install_aur_packages: true
-    zfs_pool_name: pool0
+    zfs_pools:
+      - name: pool0
+        datasets:
+          - ai-models
+          - containers
+          - export-share
+          - projects
+          - virt-images
+          - virt-isos
+          - virt-configs
+      # Example for future pool
+      # - name: pool1
+      #   datasets:
+      #     - backups
+      #     - archives
     virt_users:
       - eric
