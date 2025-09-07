@@ -1,4 +1,8 @@
 ---
+- name: Set timezone
+  ansible.builtin.timezone:
+    name: America/New_York
+
 - name: Install server kernel
   community.general.pacman:
     name:
@@ -65,13 +69,17 @@
 - name: Install essential packages from AUR
   kewlfft.aur.aur:
     name:
+      - wsdd
       - stressapptest
       - stacer-bin
       - rasdaemon
+      - tcpdump
+      - lsof
       - cockpit-file-sharing
       - cockpit-navigator
       - cockpit-zfs-manager
       - cockpit-sensors
+      - sscg
     use: paru
   become: yes
   become_user: aur_builder
@@ -80,18 +88,36 @@
 # chown ollama:ollama /var/lib/ollama
 # ras-mc-ctl --error-count
 
+- name: Install UFW firewall
+  community.general.pacman:
+    name: ufw
+    state: present
+
+- name: Allow SSH through UFW
+  community.general.ufw:
+    rule: allow
+    name: SSH
+    comment: Allow SSH connections
+
+- name: Set UFW logging
+  community.general.ufw:
+    logging: 'low'
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
 - name: Enable and start services
   ansible.builtin.systemd:
     name: "{{ item }}"
     state: started
     enabled: yes
   loop:
+    - ufw
     - ntpd
     - rasdaemon
-
-- name: Set timezone
-  ansible.builtin.timezone:
-    name: America/New_York
+    - wsdd
++
 
 # - name: Configure sysctl for performance
 #   sysctl:

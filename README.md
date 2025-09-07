@@ -23,7 +23,7 @@ Ansible playbooks for managing homelab infrastructure, starting with the "nebula
      - `visudo`
        uncomment `%wheel ALL=(ALL:ALL) NOPASSWD: ALL`
      - `rm /etc/sudoers.d/10-installer`
-  - ZFS pool "tank" ready to import
+  - ZFS pool "pool0" ready to import
 
 ## Usage
 
@@ -44,7 +44,7 @@ Ansible playbooks for managing homelab infrastructure, starting with the "nebula
 
 ## What Gets Configured
 
-- **ZFS**: Imports "tank" pool, creates datasets for docker, vms, and data
+- **ZFS**: Imports "pool0" pool, creates datasets for docker, vms, and data
 - **Docker**: Installed with ZFS storage driver, user added to docker group
 - **libvirt**: KVM/QEMU with UEFI support, storage pool on ZFS
 - **Cockpit**: Web interface on port 9090 with modules for VMs, containers, and storage

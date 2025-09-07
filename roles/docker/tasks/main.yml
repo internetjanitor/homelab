@@ -20,7 +20,7 @@
 
 - name: Create Docker ZFS storage directory
   file:
-    path: /tank/docker
+    path: /pool0/containers
     state: directory
     mode: '0755'
 
@@ -30,7 +30,7 @@
       {
         "storage-driver": "zfs",
         "storage-opts": [
-          "zfs.fsname=tank/docker"
+          "zfs.fsname=pool0/containers"
         ],
         "log-driver": "json-file",
         "log-opts": {
