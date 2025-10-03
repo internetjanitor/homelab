@@ -4,7 +4,7 @@
     name:
       - docker
       - docker-compose
-    state: present
+    state: "{{ package_state }}"
 
 - name: Create Docker group
   group:
@@ -51,4 +51,4 @@
 - name: Install Docker Python library for Ansible
   pacman:
     name: python-docker
-    state: present
+    state: "{{ package_state }}"
