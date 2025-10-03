@@ -9,7 +9,7 @@
       - cockpit-machines
       - cockpit-podman
       - udisks2
-    state: present
+    state: "{{ package_state }}"
 
 - name: Install Cockpit AUR packages
   kewlfft.aur.aur:
@@ -20,6 +20,7 @@
       - cockpit-sensors
       - udisks2
     use: paru
+    state: "{{ package_state }}"
   become: yes
   become_user: aur_builder
   when: install_aur_packages | default(false)
@@ -36,3 +37,47 @@
     port: '9090'
     proto: tcp
     comment: Cockpit web interface
+
+- name: Ensure /etc/cockpit/zfs directory exists
+  ansible.builtin.file:
+    path: /etc/cockpit/zfs
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install cockpit-zfs-manager config if it does not exist
+  ansible.builtin.copy:
+    src: cockpit-zfs-config.json
+    dest: /etc/cockpit/zfs/config.json
+    owner: root
+    group: root
+    mode: '0644'
+    force: no
+
+- name: Ensure /etc/cockpit/zfs/shares directory exists
+  ansible.builtin.file:
+    path: /etc/cockpit/zfs/shares
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install cockpit-zfs-manager shares config if it does not exist
+  ansible.builtin.copy:
+    src: cockpit-zfs-shares.conf
+    dest: /etc/cockpit/zfs/shares.conf
+    owner: root
+    group: root
+    mode: '0644'
+    force: no
+
+- name: Install cockpit-zfs-manager example share config if it does not exist
+  ansible.builtin.copy:
+    src: cockpit-zfs-shares-pool0_export.conf
+    dest: /etc/cockpit/zfs/shares/pool0_export-share.conf
+    owner: root
+    group: root
+    mode: '0644'
+    force: no
+

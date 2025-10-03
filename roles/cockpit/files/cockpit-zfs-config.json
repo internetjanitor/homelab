@@ -1,0 +1,41 @@
+{
+  "#1": "COCKPIT ZFS MANAGER",
+  "#2": "WARNING: DO NOT EDIT, AUTO-GENERATED CONFIGURATION",
+  "cockpit": {
+    "manage": false
+  },
+  "disks": {
+    "base2": false
+  },
+  "loglevel": "2",
+  "samba": {
+    "manage": true,
+    "windowscompatibility": true
+  },
+  "updates": {
+    "check": false
+  },
+  "zfs": {
+    "filesystem": {
+      "cloneorigin": false,
+      "quotarestrict": true,
+      "readonlylockdown": false,
+      "snapshotactions": true
+    },
+    "snapshot": {
+      "filesystemlist": true
+    },
+    "status": {
+      "errorcolors": true,
+      "trimunsupported": false
+    },
+    "storagepool": {
+      "activetab": 1,
+      "boot": false,
+      "bootlockdown": true,
+      "count": true,
+      "refreshall": false,
+      "root": false
+    }
+  }
+}
