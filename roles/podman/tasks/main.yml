@@ -1,0 +1,133 @@
+---
+- name: Install Podman packages
+  community.general.pacman:
+    name:
+      - podman
+      - podman-compose
+      - podman-docker
+      - buildah
+      - skopeo
+      # - fuse-overlayfs
+      # - slirp4netns
+    state: "{{ package_state }}"
+
+# - name: Add users to podman group (create if needed)
+#   user:
+#     name: "{{ item }}"
+#     groups: podman
+#     append: yes
+#   loop: "{{ virt_users }}"
+#   ignore_errors: yes  # Group might not exist yet
+
+- name: Create Podman config directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/containers
+    - /etc/containers/registries.conf.d
+
+- name: Configure Podman storage
+  copy:
+    content: |
+      [storage]
+      driver = "zfs"
+      graphroot = "/pool0/containers/storage"
+      runroot = "/pool0/containers/runroot"
+      
+      [storage.options]
+      zfs.fsname = "pool0/containers"
+      
+      [storage.options.zfs]
+      mountopt = "nodev"
+    dest: /etc/containers/storage.conf
+    mode: '0644'
+    backup: yes
+
+- name: Configure container registries
+  copy:
+    content: |
+      unqualified-search-registries = ["docker.io", "quay.io", "gcr.io", "ghcr.io"]
+      
+      [[registry]]
+      prefix = "docker.io"
+      location = "docker.io"
+      
+      [[registry]]
+      prefix = "quay.io"
+      location = "quay.io"
+      
+      [[registry]]
+      prefix = "gcr.io"
+      location = "gcr.io"
+      
+      [[registry]]
+      prefix = "ghcr.io"
+      location = "ghcr.io"
+    dest: /etc/containers/registries.conf
+    mode: '0644'
+    backup: yes
+
+- name: Configure Podman for rootless operation
+  copy:
+    content: |
+      [containers]
+      default_ulimits = [
+        "nofile=65536:65536",
+      ]
+    dest: /etc/containers/containers.conf.d/default_ulimits.conf
+    mode: '0644'
+    backup: yes
+
+- name: Enable podman socket for Docker compatibility
+  systemd:
+    name: podman.socket
+    state: started
+    enabled: yes
+
+# - name: Configure subuid/subgid for rootless containers
+#   lineinfile:
+#     path: "{{ item.file }}"
+#     line: "{{ item.line }}"
+#     create: yes
+#   loop:
+#     - { file: '/etc/subuid', line: '{{ item }}:100000:65536' }
+#     - { file: '/etc/subgid', line: '{{ item }}:100000:65536' }
+#   with_items: "{{ virt_users }}"
+#   loop_control:
+#     loop_var: user_item
+
+- name: Enable lingering for podman users
+  command: loginctl enable-linger {{ item }}
+  loop: "{{ virt_users }}"
+  changed_when: false
+
+# - name: Install Podman Python library for Ansible
+#   community.general.pacman:
+#     name: 
+#       - python-podman
+#       - python-docker  # For compatibility
+#     state: present
+
+- name: Create systemd user directories for users
+  file:
+    path: "/home/{{ item }}/.config/systemd/user"
+    state: directory
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    mode: '0755'
+  loop: "{{ virt_users }}"
+
+- name: Enable Podman auto-update timer
+  systemd:
+    name: podman-auto-update.timer
+    state: started
+    enabled: yes
+  when: podman_auto_update is defined and podman_auto_update
+
+- name: Create Podman network for containers
+  containers.podman.podman_network:
+    name: podman
+    driver: bridge
+    subnet: 10.88.0.0/16
