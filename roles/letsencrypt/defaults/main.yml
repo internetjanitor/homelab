@@ -1,0 +1,7 @@
+---
+# Let's Encrypt settings
+letsencrypt_email: ""  # Set this in inventory or group_vars
+letsencrypt_staging: false  # Set to true for testing
+letsencrypt_domains: []  # List of domains to request certs for
+cloudflare_api_token: ""  # Set this in vault or environment
+certbot_cloudflare_propagation_seconds: 10

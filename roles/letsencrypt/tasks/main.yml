@@ -1,0 +1,111 @@
+---
+- name: Install certbot and certbot-dns-cloudflare
+  community.general.pacman:
+    name:
+      - certbot
+      - certbot-dns-cloudflare
+    state: "{{ package_state }}"
+
+- name: Create certbot configuration directory
+  file:
+    path: /etc/letsencrypt
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create Cloudflare credentials file
+  template:
+    src: cloudflare-credentials.ini.j2
+    dest: /etc/letsencrypt/cloudflare-credentials.ini
+    mode: '0600'
+    owner: root
+    group: root
+  when: cloudflare_api_token is defined and cloudflare_api_token != ""
+
+- name: Request Let's Encrypt certificates
+  command: >
+    certbot certonly
+    --dns-cloudflare
+    --dns-cloudflare-credentials /etc/letsencrypt/cloudflare-credentials.ini
+    --dns-cloudflare-propagation-seconds {{ certbot_cloudflare_propagation_seconds }}
+    --register-unsafely-without-email
+    --agree-tos
+    --non-interactive
+    {% if letsencrypt_staging %}--staging{% endif %}
+    -d {{ item.domains | join(',') }}
+    --cert-name {{ item.name }}
+  args:
+    creates: "/etc/letsencrypt/live/{{ item.name }}/fullchain.pem"
+  loop: "{{ letsencrypt_domains }}"
+  when: 
+    # - letsencrypt_email is defined and letsencrypt_email != ""
+    - item.domains is defined and item.domains | length > 0
+
+- name: Set up automatic renewal
+  systemd:
+    name: certbot-renew.timer
+    state: started
+    enabled: yes
+
+- name: Create renewal hook directory
+  file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+    mode: '0755'
+
+- name: Create Cockpit certificate renewal hook
+  copy:
+    content: |
+      #!/bin/bash
+      # Restart Cockpit after certificate renewal
+      
+      CERT_NAME="{{ cockpit_cert_name | default('cockpit') }}"
+      
+      # Check if our cert was renewed
+      if [[ "$RENEWED_LINEAGE" == *"$CERT_NAME"* ]]; then
+        systemctl restart cockpit
+      fi
+    dest: /etc/letsencrypt/renewal-hooks/deploy/cockpit
+    mode: '0755'
+  when: cockpit_cert_name is defined
+
+- name: Create Cockpit ws-certs directory
+  file:
+    path: /etc/cockpit/ws-certs.d
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create symlinks for Cockpit certificate
+  file:
+    src: "/etc/letsencrypt/live/{{ cockpit_cert_name }}/{{ item.src }}"
+    dest: "/etc/cockpit/ws-certs.d/{{ cockpit_cert_name }}.{{ item.ext }}"
+    state: link
+    force: yes
+  loop:
+    - { src: 'fullchain.pem', ext: 'crt' }
+    - { src: 'privkey.pem', ext: 'key' }
+  when: cockpit_cert_name is defined
+  register: cockpit_symlinks
+
+- name: Restart Cockpit if certificate symlinks were created or changed
+  systemd:
+    name: cockpit
+    state: restarted
+  when: 
+    - cockpit_cert_name is defined
+    - cockpit_symlinks.changed
+
+- name: Test certificate renewal
+  command: certbot renew --dry-run
+  changed_when: false
+  register: certbot_test
+  failed_when: false
+  when: certbot_test_renew is defined and certbot_test_renew
+
+- name: Display renewal test results
+  debug:
+    msg: "Certificate renewal test completed. Check output for any issues."
+  when: certbot_test is defined and not certbot_test.skipped
