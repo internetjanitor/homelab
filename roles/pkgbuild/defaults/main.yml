@@ -1,0 +1,13 @@
+---
+# List of packages to modify
+modified_packages:
+  - libvirt
+
+# Build user configuration
+build_user: aur_builder
+build_group: wheel
+build_base_dir: /home/aur_builder
+
+# Directory structure
+pkgbuild_dir: "{{ build_base_dir }}/pkgbuilds"
+sources_dir: "{{ build_base_dir }}/sources"

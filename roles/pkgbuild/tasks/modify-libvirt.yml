@@ -1,0 +1,87 @@
+---
+- name: Add apparmor to libvirt dependencies
+  ansible.builtin.lineinfile:
+    path: "{{ pkgbuild_dir }}/libvirt/PKGBUILD"
+    insertafter: '^depends=\('
+    line: '  apparmor'
+    state: present
+  become: true
+  become_user: "{{ build_user }}"
+
+- name: Enable apparmor build option
+  ansible.builtin.replace:
+    path: "{{ pkgbuild_dir }}/libvirt/PKGBUILD"
+    regexp: '(\s*)-Dapparmor=disabled(\s*\\)'
+    replace: '\1-Dapparmor=enabled\2'
+  become: true
+  become_user: "{{ build_user }}"
+
+- name: Enable apparmor_profiles build option
+  ansible.builtin.replace:
+    path: "{{ pkgbuild_dir }}/libvirt/PKGBUILD"
+    regexp: '(\s*)-Dapparmor_profiles=disabled(\s*\\)'
+    replace: '\1-Dapparmor_profiles=enabled\2'
+  become: true
+  become_user: "{{ build_user }}"
+
+- name: Enable secdriver_apparmor build option
+  ansible.builtin.replace:
+    path: "{{ pkgbuild_dir }}/libvirt/PKGBUILD"
+    regexp: '(\s*)-Dsecdriver_apparmor=disabled(\s*\\)'
+    replace: '\1-Dsecdriver_apparmor=enabled\2'
+  become: true
+  become_user: "{{ build_user }}"
+
+- name: Add modified group to libvirt package
+  ansible.builtin.lineinfile:
+    path: "{{ pkgbuild_dir }}/libvirt/PKGBUILD"
+    insertafter: '^pkgrel='
+    line: "groups=('modified')"
+    state: present
+  become: true
+  become_user: "{{ build_user }}"
+
+- name: Check if package was newly cloned
+  ansible.builtin.set_fact:
+    libvirt_newly_cloned: "{{ pkg_dirs.results | selectattr('item', 'eq', 'libvirt') | map(attribute='stat.exists') | first | default(true) | bool == false }}"
+
+- name: Check if package needs to be built
+  ansible.builtin.set_fact:
+    needs_build: "{{ libvirt_newly_cloned or ('libvirt' in updated_packages) }}"
+
+- name: Clean old package archives
+  ansible.builtin.shell:
+    cmd: rm -f *.pkg.tar.zst
+    chdir: "{{ pkgbuild_dir }}/libvirt"
+  become: true
+  become_user: "{{ build_user }}"
+  when: needs_build | default(true)
+  changed_when: true
+
+- name: Build modified libvirt package
+  ansible.builtin.command:
+    cmd: makepkg --syncdeps --noconfirm
+    chdir: "{{ pkgbuild_dir }}/libvirt"
+  become: true
+  become_user: "{{ build_user }}"
+  register: makepkg_result
+  changed_when: true
+  when: needs_build | default(true)
+
+- name: Find built libvirt package
+  ansible.builtin.find:
+    paths: "{{ pkgbuild_dir }}/libvirt"
+    patterns: "libvirt-1:*.pkg.tar.zst"
+    use_regex: false
+  register: libvirt_package
+  when: needs_build | default(true)
+
+- name: Install libvirt package
+  ansible.builtin.command:
+    cmd: pacman -U --noconfirm {{ libvirt_package.files[0].path }}
+  become: true
+  when: 
+    - needs_build | default(true)
+    - libvirt_package.files is defined
+    - libvirt_package.files | length > 0
+  changed_when: true

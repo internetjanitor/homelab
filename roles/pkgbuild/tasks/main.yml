@@ -1,0 +1,104 @@
+---
+- name: Configure Pacman for modified packages
+  ansible.builtin.lineinfile:
+    path: /etc/pacman.conf
+    insertafter: '\[options\]'
+    line: "IgnoreGroup = modified"
+    state: present
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Configure aur_builder for package builds
+  ansible.builtin.blockinfile:
+    path: "{{ build_base_dir }}/.makepkg.conf"
+    block: |
+      SRCDEST={{ sources_dir }}
+    owner: "{{ build_user }}"
+    group: "{{ build_group }}"
+    mode: '0644'
+  become: true
+
+- name: Ensure pkgbuilds directories exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ build_user }}"
+    group: "{{ build_group }}"
+    mode: '0755'
+  loop:
+    - "{{ sources_dir }}"
+    - "{{ pkgbuild_dir }}"
+  become: true
+
+- name: Check if package directories exist
+  ansible.builtin.stat:
+    path: "{{ pkgbuild_dir }}/{{ item }}"
+  register: pkg_dirs
+  loop: "{{ modified_packages }}"
+
+- name: Clone packages to modify
+  ansible.builtin.command:
+    cmd: pkgctl repo clone --protocol=https {{ item.item }}
+    chdir: "{{ pkgbuild_dir }}"
+  when: not item.stat.exists
+  loop: "{{ pkg_dirs.results }}"
+  become: true
+  become_user: "{{ build_user }}"
+
+- name: Check for remote updates
+  ansible.builtin.command:
+    cmd: git fetch --dry-run
+    chdir: "{{ pkgbuild_dir }}/{{ item.item }}"
+  when: item.stat.exists
+  loop: "{{ pkg_dirs.results }}"
+  become: true
+  become_user: "{{ build_user }}"
+  register: git_fetch_check
+  changed_when: false
+
+- name: Reset and pull updates when available
+  block:
+    - name: Reset git repository to clean state
+      ansible.builtin.command:
+        cmd: git reset --hard HEAD
+        chdir: "{{ pkgbuild_dir }}/{{ item.item }}"
+      loop: "{{ git_fetch_check.results | default([]) }}"
+      when: 
+        - item.stdout is defined
+        - item.stdout != ""
+        - item.rc == 0
+      become: true
+      become_user: "{{ build_user }}"
+
+    - name: Pull updates from remote
+      ansible.builtin.command:
+        cmd: git pull --ff-only
+        chdir: "{{ pkgbuild_dir }}/{{ item.item }}"
+      loop: "{{ git_fetch_check.results | default([]) }}"
+      when: 
+        - item.stdout is defined
+        - item.stdout != ""
+        - item.rc == 0
+      become: true
+      become_user: "{{ build_user }}"
+      register: git_pull
+      changed_when: true
+  when: git_fetch_check is defined and git_fetch_check.results is defined
+
+- name: Set fact for packages that were updated
+  ansible.builtin.set_fact:
+    updated_packages: "{{ git_fetch_check.results | default([]) | selectattr('stdout', 'defined') | selectattr('stdout', 'ne', '') | map(attribute='item.item') | list | default([]) }}"
+  when: git_fetch_check is defined and git_fetch_check.results is defined
+
+- name: Set empty list for updated packages when no fetch was done
+  ansible.builtin.set_fact:
+    updated_packages: []
+  when: git_fetch_check is not defined or git_fetch_check.results is not defined
+
+# Include package-specific modification tasks
+- name: Apply package-specific modifications
+  ansible.builtin.include_tasks: "modify-{{ item }}.yml"
+  loop: "{{ modified_packages }}"
+  when: modified_packages is defined and modified_packages | length > 0
