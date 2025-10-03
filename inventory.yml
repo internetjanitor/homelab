@@ -6,8 +6,16 @@ all:
       ansible_user: eric
       ansible_become: yes
       ansible_python_interpreter: /usr/bin/python3
+
   vars:
+    # Update all packages to the latest version
+    update: false
+    package_state: "{{ 'latest' if update | default(false) | bool else 'present' }}"
+
+    # Install or update AUR packages
     install_aur_packages: true
+
+    # ZFS Pool and Filesystem configuration
     zfs_pools:
       - name: pool0
         datasets:
@@ -23,5 +31,29 @@ all:
       #   datasets:
       #     - backups
       #     - archives
+
+    # Users configured to use virtualization
     virt_users:
       - eric
+
+    # Have Podman keep images up to date with upstream registry releases
+    podman_auto_update: false
+
+    # Force password sync for all Samba users
+    samba_force_password_change: false
+
+    # Let's Encrypt configuration
+    letsencrypt_staging: false  # Set to true for testing
+    cloudflare_api_token: "{{ vault_cloudflare_api_token | default('') }}"  # Set in vault.yml
+
+    # Whether to test the renewals are working (dry-run)
+    certbot_test_renew: false
+    
+    # Certificate configurations
+    letsencrypt_domains:
+      - name: nebula
+        domains:
+          - nebula.in.miller.world
+    
+    # Cockpit certificate name (matches the name in letsencrypt_domains)
+    cockpit_cert_name: nebula
