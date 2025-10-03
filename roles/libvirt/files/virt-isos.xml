@@ -1,9 +1,9 @@
 <pool type='dir'>
-  <name>virt-images</name>
+  <name>virt-isos</name>
   <source>
   </source>
   <target>
-    <path>/pool0/virt-images</path>
+    <path>/pool0/virt-isos</path>
     <permissions>
       <mode>0755</mode>
     </permissions>
