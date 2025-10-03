@@ -10,14 +10,49 @@
       - linux-cachyos-server-headers
       - linux-cachyos-server-zfs
       - linux-cachyos-server-nvidia
-    state: latest
+      - ast-firmware
+      - apparmor
+      - apparmor.d-git
+    state: "{{ package_state }}"
   register: kernel_install
+
+- name: Configure AppArmor parser
+  ansible.builtin.blockinfile:
+    path: /etc/apparmor/parser.conf
+    block: |
+      write-cache
+      Optimize=compress-fast
+    create: yes
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable apparmor in kernel
+  ansible.builtin.copy: 
+    src: limine-apparmor.conf
+    dest: /etc/limine-entry-tool.d/apparmor.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: apparmor_install
+
+- name: Apply apparmor kernel config
+  ansible.builtin.command: limine-mkinitcpio
+  when: apparmor_install.changed
+
+- name: Configure secondary GPU for libvirt passthrough
+  ansible.builtin.copy:
+    src: modprobe-vfio.conf
+    dest: /etc/modprobe.d/vfio.conf
+    owner: root
+    group: root
+    mode: '0644'
 
 - name: Check if reboot is required after kernel update
   ansible.builtin.pause:
     prompt: "Kernel was updated. Do you want to reboot now? (yes/no)"
   register: reboot_prompt
-  when: kernel_install.changed
+  when: kernel_install.changed or apparmor_install.changed
 
 - name: Reboot the server
   ansible.builtin.reboot:
@@ -31,24 +66,32 @@
   community.general.pacman:
     update_cache: yes
     upgrade: yes
+  when: update | default(false) | bool
 
 - name: Install essential packages
   community.general.pacman:
     name:
-      - ntp
+      - bash-completion
       - bridge-utils
+      - chrony
       - cifs-utils
+      - devtools
+      - dmidecode
       - duperemove
+      - freeipmi
       - iotop
       - ipmitool
-      - freeipmi
+      - meson
+      - ncdu
+      - openbsd-netcat
       - openipmi
       - prometheus-ipmi-exporter
-      # - ast-firmware
-      - ncdu
+      - python-docutils
+      - python-lxml
       - tmux
-
-    state: present
+      - ufw
+      - samba
+    state: "{{ package_state }}"
 
 - name: Create the `aur_builder` user
   become: yes
@@ -69,18 +112,19 @@
 - name: Install essential packages from AUR
   kewlfft.aur.aur:
     name:
-      - wsdd
-      - stressapptest
-      - stacer-bin
-      - rasdaemon
-      - tcpdump
-      - lsof
       - cockpit-file-sharing
       - cockpit-navigator
-      - cockpit-zfs-manager
       - cockpit-sensors
+      - cockpit-zfs-manager
+      - lsof
+      - rasdaemon
       - sscg
+      - stacer-bin
+      - stressapptest
+      - tcpdump
+      - wsdd
     use: paru
+    state: "{{ package_state }}"
   become: yes
   become_user: aur_builder
   when: install_aur_packages | default(false)
@@ -88,16 +132,24 @@
 # chown ollama:ollama /var/lib/ollama
 # ras-mc-ctl --error-count
 
-- name: Install UFW firewall
-  community.general.pacman:
-    name: ufw
-    state: present
-
-- name: Allow SSH through UFW
+- name: Allow App profiles through UFW
   community.general.ufw:
     rule: allow
-    name: SSH
-    comment: Allow SSH connections
+    name: "{{ item }}"
+  loop:
+    - SSH
+    - Samba
+
+- name: Allow WSDD through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { port: '3702', proto: 'udp', comment: 'WSDD multicast discovery' }
+    - { port: '5357', proto: 'tcp', comment: 'WSDD HTTP responses' }
+    - { port: '5358', proto: 'tcp', comment: 'WSDD HTTPS responses' }
 
 - name: Set UFW logging
   community.general.ufw:
@@ -113,11 +165,16 @@
     state: started
     enabled: yes
   loop:
-    - ufw
-    - ntpd
+    - apparmor
+    - chronyd
     - rasdaemon
+    - ufw
     - wsdd
-+
+
+- name: Configure SSH known host for Arch Gitlab
+  ansible.builtin.lineinfile:
+    path: /root/.ssh/known_hosts
+    line: 'gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy'
 
 # - name: Configure sysctl for performance
 #   sysctl:
