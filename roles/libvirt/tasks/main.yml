@@ -2,7 +2,7 @@
 - name: Install libvirt and KVM packages
   community.general.pacman:
     name:
-      - libvirt
+      # - libvirt
       - qemu-full
       - virt-install
       - virt-manager
@@ -10,9 +10,30 @@
       - dnsmasq
       - ebtables
       - bridge-utils
-      - openbsd-netcat
-      - dmidecode
+    state: "{{ package_state }}"
+
+- name: Enable apparmor in libvirt qemu.conf
+  ansible.builtin.lineinfile:
+    path: /etc/libvirt/qemu.conf
+    insertafter: '#security_driver ='
+    line: 'security_driver = "apparmor"'
     state: present
+
+- name: Create directory for libvirt apparmor settings
+  ansible.builtin.file:
+    path: /etc/apparmor.d/abstractions/libvirt-qemu.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create apparmor abstraction for virt-isos pool access
+  ansible.builtin.copy:
+    src: virt-isos.apparmor.conf
+    dest: /etc/apparmor.d/abstractions/libvirt-qemu.d/virt-isos.conf
+    owner: root
+    group: root
+    mode: '0644'
 
 - name: Add users to libvirt group
   user:
@@ -21,36 +42,52 @@
     append: yes
   loop: "{{ virt_users }}"
 
-- name: Create VM storage directory on ZFS
-  file:
-    path: /pool0/virt-images
-    state: directory
-    mode: '0755'
-
-- name: Configure libvirt storage pool for VMs
-  blockinfile:
-    path: /etc/libvirt/storage/virt-images.xml
-    create: yes
-    mode: '0644'
-    block: |
-      <pool type='dir'>
-        <name>virt-images</name>
-        <source>
-        </source>
-        <target>
-          <path>/pool0/virt-images</path>
-          <permissions>
-            <mode>0755</mode>
-          </permissions>
-        </target>
-      </pool>
-  notify: restart libvirtd
-
 - name: Enable and start libvirtd service
   systemd:
     name: libvirtd
     state: started
     enabled: yes
+
+- name: Disable default storage pool
+  community.libvirt.virt_pool:
+    name: default
+    # /var/lib/libvirt/images
+    state: absent
+
+- name: Ensure VM storage directory exists
+  file:
+    path: /pool0/virt-images
+    state: directory
+    mode: '0755'
+
+- name: Configure virt-images as default storage pool for VMs
+  community.libvirt.virt_pool:
+    command: define
+    name: default
+    xml: '{{ lookup("file", "virt-images.xml") }}'
+
+- name: Ensure virt-images storage pool is active
+  community.libvirt.virt_pool:
+    name: default
+    state: active
+    autostart: true
+
+- name: Ensure virt-images storage pool is autostarted at boot
+  community.libvirt.virt_pool:
+    name: default
+    autostart: true
+
+- name: Ensure VM ISOs directory exists
+  file:
+    path: /pool0/virt-isos
+    state: directory
+    mode: '0755'
+
+- name: Configure virt-isos storage pool
+  community.libvirt.virt_pool:
+    command: define
+    name: virt-isos
+    xml: '{{ lookup("file", "virt-isos.xml") }}'
 
 - name: Enable libvirt default network
   command: virsh net-autostart default
