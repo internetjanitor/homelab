@@ -10,7 +10,10 @@
       
   roles:
     - common
+    - pkgbuild
     - zfs
-    # - docker
+    - samba
+    - podman
     - libvirt
     - cockpit
+    - letsencrypt
