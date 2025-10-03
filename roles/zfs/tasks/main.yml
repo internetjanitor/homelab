@@ -3,7 +3,7 @@
   community.general.pacman:
     name:
       - zfs-utils
-    state: present
+    state: "{{ package_state }}"
 
 - name: Load ZFS kernel module
   modprobe:
