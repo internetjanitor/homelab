@@ -1,0 +1,44 @@
+- name: Configure Samba to use registry
+  ansible.builtin.copy:
+    src: smb.conf
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+
+- name: Configure Apparmor to allow Samba
+  ansible.builtin.copy:
+    src: apparmor-smbd
+    dest: /etc/apparmor.d/local/usr.sbin.smbd
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  register: smb_apparmor_install
+
+- name: Reparse Apparmor config
+  ansible.builtin.command: apparmor_parser -r /etc/apparmor.d/usr.sbin.smbd
+  when: smb_apparmor_install.changed
+
+- name: Fetch current smbpasswd users
+  command: /usr/bin/pdbedit -L
+  register: pdb_users
+
+- name: Set Samba password for users
+  command:
+    cmd: /usr/bin/smbpasswd -s -a {{ item.name }}
+    stdin: |
+      {{ item.password }}
+      {{ item.password }}
+  when: pdb_users.stdout.find(item.name) == -1 or samba_force_password_change | default(false)
+  loop: "{{ samba_users | default([]) }}"
+
+- name: Enable and start Samba
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - smb
+    - nmb
