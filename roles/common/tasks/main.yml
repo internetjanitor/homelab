@@ -152,8 +152,20 @@
     comment: "{{ item.comment }}"
   loop:
     - { port: '3702', proto: 'udp', comment: 'WSDD multicast discovery' }
-    - { port: '5357', proto: 'tcp', comment: 'WSDD HTTP responses' }
-    - { port: '5358', proto: 'tcp', comment: 'WSDD HTTPS responses' }
+    - { port: '3702', proto: 'tcp', comment: 'WSDD Unicast SOAP HTTP WS-Discovery responses' }
+    - { port: '5355', proto: 'udp', comment: 'WSDD Link-Local Multicast Name Resolution responses' }
+    - { port: '5355', proto: 'tcp', comment: 'WSDD Link-Local Multicast Name Resolution responses' }
+    - { port: '5357', proto: 'tcp', comment: 'WSDD Web Services for Devices HTTP responses' }
+    - { port: '5358', proto: 'tcp', comment: 'WSDD Web Services for Devices HTTPS responses' }
+
+- name: Deny rules for UFW
+  community.general.ufw:
+    rule: deny
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { port: '1900', proto: 'udp', comment: 'Simple Service Discovery Protocol' }
 
 - name: Allow Ollama through UFW
   community.general.ufw:
