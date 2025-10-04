@@ -1,4 +1,4 @@
-- name: Configure Samba to use registry
+- name: Configure Samba
   ansible.builtin.copy:
     src: smb.conf
     dest: /etc/samba/smb.conf
@@ -24,6 +24,7 @@
 - name: Fetch current smbpasswd users
   command: /usr/bin/pdbedit -L
   register: pdb_users
+  changed_when: false
 
 - name: Set Samba password for users
   command:
