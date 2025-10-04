@@ -7,6 +7,7 @@
 # Create token at: https://dash.cloudflare.com/profile/api-tokens
 # Required permissions: Zone:DNS:Edit for your domain
 vault_cloudflare_api_token: "your-cloudflare-api-token-here"
+vault_cloudflare_domain: "your-domain-here"
 
 samba_users:
   - { name: eric, password: secret }

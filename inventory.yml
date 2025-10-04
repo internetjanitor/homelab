@@ -53,7 +53,7 @@ all:
     letsencrypt_domains:
       - name: nebula
         domains:
-          - nebula.in.miller.world
+          - nebula.{{ vault_cloudflare_domain | default('') }}
     
     # Cockpit certificate name (matches the name in letsencrypt_domains)
     cockpit_cert_name: nebula
