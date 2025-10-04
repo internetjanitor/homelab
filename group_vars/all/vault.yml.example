@@ -9,5 +9,16 @@
 vault_cloudflare_api_token: "your-cloudflare-api-token-here"
 vault_cloudflare_domain: "your-domain-here"
 
+wireguard_tunnels:
+  - interface_name: ''
+    address: ''
+    dns: ''
+    private_key: ''
+    public_key: ''
+    endpoint: ''
+    bridge: ''
+    table: ''
+
+
 samba_users:
-  - { name: eric, password: secret }
+  - { name: user, password: secret }
