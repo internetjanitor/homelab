@@ -1,0 +1,23 @@
+<network connections='1'>
+  <name>wireguard1</name>
+  <forward dev='wg1' mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+    <interface dev='wg1'/>
+  </forward>
+  <bridge name='virbr1' stp='on' delay='0'/>
+  <mac address='52:54:00:99:b9:a2'/>
+  <domain name='wg1' localOnly='yes'/>
+  <dns>
+    <host ip='192.168.100.1'>
+      <hostname>gateway</hostname>
+    </host>
+  </dns>
+  <ip address='192.168.100.1' netmask='255.255.255.0' localPtr='yes'>
+    <dhcp>
+      <range start='192.168.100.2' end='192.168.100.254'/>
+      <host mac='52:54:00:ea:09:66' ip='192.168.100.188'/>
+    </dhcp>
+  </ip>
+</network>

@@ -1,0 +1,16 @@
+- name: Configure wireguard tunnels
+  ansible.builtin.template:
+    src: wireguard.conf.j2
+    dest: "/etc/wireguard/{{ item.interface_name }}.conf"
+    owner: root
+    group: root
+  loop: "{{ wireguard_tunnels }}"
+  no_log: true
+
+- name: Enable and start tunnels
+  ansible.builtin.systemd:
+    name: "wg-quick@{{ item.interface_name }}"
+    state: started
+    enabled: yes
+  loop: "{{ wireguard_tunnels }}"
+  no_log: true

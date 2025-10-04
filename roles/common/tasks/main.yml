@@ -68,7 +68,7 @@
     upgrade: yes
   when: update | default(false) | bool
 
-- name: Install essential packages
+- name: Install base packages
   community.general.pacman:
     name:
       - bash-completion
@@ -83,14 +83,18 @@
       - ipmitool
       - meson
       - ncdu
+      - ollama-cuda
       - openbsd-netcat
       - openipmi
       - prometheus-ipmi-exporter
       - python-docutils
       - python-lxml
+      - samba
       - tmux
       - ufw
-      - samba
+      - wgcf
+      - wireguard-tools
+      - xorg-xauth
     state: "{{ package_state }}"
 
 - name: Create the `aur_builder` user
@@ -151,6 +155,15 @@
     - { port: '5357', proto: 'tcp', comment: 'WSDD HTTP responses' }
     - { port: '5358', proto: 'tcp', comment: 'WSDD HTTPS responses' }
 
+- name: Allow Ollama through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { port: '11434', proto: 'tcp', comment: 'Ollama' }
+
 - name: Set UFW logging
   community.general.ufw:
     logging: 'low'
@@ -158,6 +171,22 @@
 - name: Enable UFW
   community.general.ufw:
     state: enabled
+
+- name: Create ollama systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/ollama.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create ollama systemd override config
+  ansible.builtin.copy:
+    src: ollama.service.d-override.conf
+    dest: /etc/systemd/system/ollama.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
 
 - name: Enable and start services
   ansible.builtin.systemd:
@@ -167,6 +196,7 @@
   loop:
     - apparmor
     - chronyd
+    - ollama
     - rasdaemon
     - ufw
     - wsdd

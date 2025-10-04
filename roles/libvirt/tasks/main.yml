@@ -48,11 +48,17 @@
     state: started
     enabled: yes
 
+- name: Get default storage pool settings
+  community.libvirt.virt_pool:
+    name: default
+    command: get_xml
+  register: default_pool
+  
 - name: Disable default storage pool
   community.libvirt.virt_pool:
     name: default
-    # /var/lib/libvirt/images
     state: absent
+  when: "'/var/lib/libvirt/images' in default_pool.get_xml"
 
 - name: Ensure VM storage directory exists
   file:
@@ -70,7 +76,6 @@
   community.libvirt.virt_pool:
     name: default
     state: active
-    autostart: true
 
 - name: Ensure virt-images storage pool is autostarted at boot
   community.libvirt.virt_pool:
@@ -89,12 +94,54 @@
     name: virt-isos
     xml: '{{ lookup("file", "virt-isos.xml") }}'
 
-- name: Enable libvirt default network
-  command: virsh net-autostart default
-  changed_when: false
-  failed_when: false
+- name: Enable libvirt default network autostart
+  community.libvirt.virt_net:
+    name: default
+    autostart: true
 
 - name: Start libvirt default network
-  command: virsh net-start default
-  changed_when: false
-  failed_when: false
+  community.libvirt.virt_net:
+    name: default
+    state: active
+
+- name: Configure wireguard0 network
+  community.libvirt.virt_net:
+    command: define
+    name: wireguard1
+    xml: '{{ lookup("file", "virt-wireguard1.xml") }}'
+
+- name: Enable wireguard1 network autostart
+  community.libvirt.virt_net:
+    name: wireguard1
+    autostart: true
+
+- name: Start wireguard1 network
+  community.libvirt.virt_net:
+    name: wireguard1
+    state: active
+
+- name: Allow Guest DHCP through UFW
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: "{{ item.interface }}"
+    proto: "{{ item.proto }}"
+    to: any
+    port: "{{ item.port }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { interface: 'virbr0', port: '53,67', proto: 'udp', comment: 'Guest DHCP to Host' }
+    - { interface: 'virbr1', port: '53,67', proto: 'udp', comment: 'Guest DHCP to Host' }
+
+- name: Allow Guest Forwarding through UFW
+  community.general.ufw:
+    rule: allow
+    interface_in: "{{ item.interface_in }}"
+    interface_out: "{{ item.interface_out }}"
+    from: "{{ item.from }}"
+    to: any
+    route: true
+    comment: "{{ item.comment }}"
+  loop:
+    - { interface_in: 'virbr0', interface_out: 'eno1np0', from: '192.168.122.0/24', comment: 'Guest Forwarding' }
+    - { interface_in: 'virbr1', interface_out: 'wg1', from: '192.168.100.0/24', comment: 'Guest Forwarding' }

@@ -1,0 +1,15 @@
+[Interface]
+PrivateKey = {{ item.private_key }}
+Address = {{ item.address }}
+DNS = {{ item.dns }}
+Table = off
+
+{% if item.bridge | default(None) %}
+PostUp = ip rule add from all iif {{ item.bridge }} lookup {{ item.table }}; ip route add default dev {{ item.interface_name }} table {{ item.table }}; {{ item.post_up | default ('') }}
+PostDown = ip rule del from all iif {{ item.bridge }} lookup {{ item.table }}
+{% endif %}
+
+[Peer]
+PublicKey = {{ item.public_key }}
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = {{ item.endpoint }}
