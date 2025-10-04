@@ -19,21 +19,51 @@
     line: 'security_driver = "apparmor"'
     state: present
 
-- name: Create directory for libvirt apparmor settings
+- name: Create directories libvirt apparmor abstractions
   ansible.builtin.file:
-    path: /etc/apparmor.d/abstractions/libvirt-qemu.d
+    path: "/etc/apparmor.d/abstractions/{{ item }}"
     state: directory
     owner: root
     group: root
     mode: '0755'
+  loop:
+    - libvirt-qemu.d
+    - local/usr.lib.libvirt.virt-aa-helper
+    - local/virt-aa-helper
+    - local/virt-manager
+    - local/virtstoraged
 
-- name: Create apparmor abstraction for virt-isos pool access
+- name: Create apparmor abstraction for virt-isos pool read-only access
   ansible.builtin.copy:
-    src: virt-isos.apparmor.conf
-    dest: /etc/apparmor.d/abstractions/libvirt-qemu.d/virt-isos.conf
+    src: virt-isos.apparmor.r.conf
+    dest: "/etc/apparmor.d/abstractions/{{ item }}/virt-isos.conf"
     owner: root
     group: root
     mode: '0644'
+  loop:
+    - libvirt-qemu.d
+
+- name: Create apparmor abstraction for virt-images pool read-only access
+  ansible.builtin.copy:
+    src: virt-images.apparmor.r.conf
+    dest: "/etc/apparmor.d/abstractions/{{ item }}/virt-images.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - local/usr.lib.libvirt.virt-aa-helper
+    - local/virt-aa-helper
+
+- name: Create apparmor abstraction for virt-images pool read-write access
+  ansible.builtin.copy:
+    src: virt-images.apparmor.rw.conf
+    dest: "/etc/apparmor.d/abstractions/{{ item }}/virt-images.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - local/virt-manager
+    - local/virtstoraged
 
 - name: Add users to libvirt group
   user:
