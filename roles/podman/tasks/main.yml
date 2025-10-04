@@ -101,7 +101,7 @@
 - name: Enable lingering for podman users
   command: loginctl enable-linger {{ item }}
   loop: "{{ virt_users }}"
-  changed_when: false
+  creates: "/var/lib/systemd/linger/{{ item }}"
 
 # - name: Install Podman Python library for Ansible
 #   community.general.pacman:
